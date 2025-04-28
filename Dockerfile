@@ -1,4 +1,5 @@
 FROM node:20-buster as installer
+ENV NODE_OPTIONS=--max_old_space_size=4096
 COPY . /juice-shop
 WORKDIR /juice-shop
 RUN npm i -g typescript ts-node

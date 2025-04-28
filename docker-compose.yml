@@ -1,0 +1,10 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    ports: ["4000:4000"]
+  zap:
+    image: owasp/zap2docker-weekly
+    command: zap.sh -daemon -host 0.0.0.0 -port 8090 -config api.disablekey=true
+    ports: ["8090:8090"]
+    depends_on: [app]
