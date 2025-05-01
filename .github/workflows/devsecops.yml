@@ -17,7 +17,7 @@ jobs:
               image: bkimminich/juice-shop:latest
               ports: [\"3000:3000\"]
             zap:
-              image: image: ghcr.io/zaproxy/zap2docker-weekly
+              image: ghcr.io/zaproxy/zap2docker-weekly
               command: zap-baseline.py -t http://app:3000 -m 3 -I -j -c zap-baseline.conf
               depends_on: [app]" > docker-compose.yml
           docker compose up -d
