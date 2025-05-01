@@ -21,7 +21,7 @@ jobs:
               command: zap-baseline.py -t http://app:3000 -m 3 -I -j -c zap-baseline.conf
               depends_on: [app]" > docker-compose.yml
           docker compose up -d
-      - uses: aquasecurity/trivy-action@v0.19.0
+      - uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'image'
           image-ref: bkimminich/juice-shop:17.2.0
