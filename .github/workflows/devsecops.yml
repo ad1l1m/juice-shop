@@ -20,6 +20,8 @@ jobs:
           image-ref: bkimminich/juice-shop:latest
           ignore-unfixed: true
           vuln-type: 'os,library'
+          format: 'json'
+          output: 'trivy-results.json'
 
       - uses: zaproxy/action-baseline@v0.10.0
         with:
