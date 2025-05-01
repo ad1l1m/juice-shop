@@ -7,33 +7,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Pull Juice Shop
         run: docker pull bkimminich/juice-shop:latest
-      - name: Login to GitHub Container Registry
-        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Compose up
-        run: |
-          echo "version: '3.9'
-          services:
-            app:
-              image: bkimminich/juice-shop:latest
-              ports: [\"3000:3000\"]
-            zap:
-              image: ghcr.io/zaproxy/zaproxy
-              command: zap-baseline.py -t http://app:3000 -m 3 -I -j -c zap-baseline.conf
-              depends_on: [app]" > docker-compose.yml
-          docker compose up -d
+      - name: Run Juice Shop
+        run: docker run -d -p 3000:3000 --name juice bkimminich/juice-shop:latest
+
       - uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'image'
           image-ref: bkimminich/juice-shop:latest
           ignore-unfixed: true
           vuln-type: 'os,library'
-      - uses: zaproxy/action-baseline@v0.10.0  # быстрый DAST :contentReference[oaicite:0]{index=0}
+
+      - uses: zaproxy/action-baseline@v0.10.0
         with:
-          target: 'http://app:3000'
-          cmd_options: '-m 3 -I -j'
+          target: 'http://localhost:3000'
+          cmd_options: '-m 3 -I -j -J zap-report.json'
+
       - name: Upload reports
         uses: actions/upload-artifact@v4
         with:
