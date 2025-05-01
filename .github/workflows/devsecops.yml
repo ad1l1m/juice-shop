@@ -8,13 +8,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Pull Juice Shop
-        run: docker pull bkimminich/juice-shop:17.2.0
+        run: docker pull bkimminich/juice-shop:latest
       - name: Compose up
         run: |
           echo "version: '3.9'
           services:
             app:
-              image: bkimminich/juice-shop:17.2.0
+              image: bkimminich/juice-shop:latest
               ports: [\"3000:3000\"]
             zap:
               image: owasp/zap2docker-weekly
@@ -24,7 +24,7 @@ jobs:
       - uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'image'
-          image-ref: bkimminich/juice-shop:17.2.0
+          image-ref: bkimminich/juice-shop:latest
           ignore-unfixed: true
           vuln-type: 'os,library'
       - uses: zaproxy/action-baseline@v0.10.0  # быстрый DAST :contentReference[oaicite:0]{index=0}
