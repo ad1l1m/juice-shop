@@ -9,6 +9,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Pull Juice Shop
         run: docker pull bkimminich/juice-shop:latest
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
       - name: Compose up
         run: |
           echo "version: '3.9'
@@ -17,7 +20,7 @@ jobs:
               image: bkimminich/juice-shop:latest
               ports: [\"3000:3000\"]
             zap:
-              image: owasp/zap2docker-weekly
+              image: ghcr.io/zaproxy/zap2docker-weekly
               command: zap-baseline.py -t http://app:3000 -m 3 -I -j -c zap-baseline.conf
               depends_on: [app]" > docker-compose.yml
           docker compose up -d
