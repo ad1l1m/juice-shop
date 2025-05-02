@@ -35,7 +35,7 @@ jobs:
     needs: sast
     services:
       juice:
-        image: bkimminich/juice-shop:${{ env.JUICE_TAG }}
+        image: bkimminich/juice-shop:17.2.0
         ports:
           - 3000:3000         # выражения тут запрещены, пишем константу
     steps:
