@@ -2,7 +2,7 @@ name: DevSecOps
 on: [push, pull_request, workflow_dispatch]
 
 env:
-  JUICE_TAG: 17.2.0
+  JUICE_TAG: 17.4.1
   TRIVY_SEVERITY: CRITICAL,HIGH
 
 # ---------- 1. Secrets scan ----------
@@ -36,7 +36,7 @@ jobs:
     # needs: sast
     services:
       juice:
-        image: bkimminich/juice-shop:17.2.0
+        image: bkimminich/juice-shop:17.4.1
         ports:
           - 3000:3000         # выражения тут запрещены, пишем константу
     steps:
