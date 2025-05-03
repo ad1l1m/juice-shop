@@ -3,7 +3,7 @@ on: [push, pull_request, workflow_dispatch]
 
 env:
   JUICE_TAG: latest
-  TRIVY_SEVERITY: CRITICAL,HIGH
+  # TRIVY_SEVERITY: CRITICAL,HIGH
 
 # ---------- 1. Secrets scan ----------
 jobs:
