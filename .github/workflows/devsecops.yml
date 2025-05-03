@@ -33,43 +33,37 @@ jobs:
 # ---------- 3. Runtime scans: Trivy + ZAP ----------
   runtime-scan:
     runs-on: ubuntu-latest
-    # needs: sast
     services:
       juice:
-        image: bkimminich/juice-shop
+        image: bkimminich/juice-shop:latest
         ports:
-          - 3000:3000         # выражения тут запрещены, пишем константу
+          - 3000:3000
     steps:
       - uses: actions/checkout@v4
 
-      # Trivy image scan с quality-gate
       - name: Trivy image scan
-        uses: aquasecurity/trivy-action@0.19.0
+        uses: aquasecurity/trivy-action@0.20.0
         with:
-          image-ref: bkimminich/juice-shop:${{ env.JUICE_TAG }}
+          image-ref: bkimminich/juice-shop:latest
           scan-type: image
           vuln-type: 'os,library'
-          severity: ${{ env.TRIVY_SEVERITY }}
+          severity: CRITICAL,HIGH
           format: json
           output: trivy-result.json
-          exit-code: 0            # «красный» билд, если найдены High/Critical
+          exit-code: 0          # пока не блокируем
 
-      # ZAP Baseline DAST
       - name: ZAP baseline scan
         uses: zaproxy/action-baseline@v0.10.0
         with:
           target: http://localhost:3000
-          cmd_options: "-t 100 -m 3 -I -j -J zap-report.json"
-          fail_action: true       # билд упадёт, если алертов больше порога
+          cmd_options: "-m 3 -I -j -J zap-report.json"   # ✔ исправлено
+          fail_action: true
 
-      # SBOM (CycloneDX JSON)
       - name: SBOM
         run: |
-          docker run --rm \
-            -v $PWD:/sbom aquasecurity/trivy:0.51.2 \
-            sbom --format cyclonedx --output sbom.json bkimminich/juice-shop:${{ env.JUICE_TAG }}
+          docker run --rm -v $PWD:/sbom aquasecurity/trivy:0.51.2 \
+            sbom --format cyclonedx --output sbom.json bkimminich/juice-shop:latest
 
-      # Отчёты
       - uses: actions/upload-artifact@v4
         with:
           name: reports
@@ -77,3 +71,4 @@ jobs:
             trivy-result.json
             zap-report.json
             sbom.json
+
