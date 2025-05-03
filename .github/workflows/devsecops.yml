@@ -61,7 +61,7 @@ jobs:
 
       - name: SBOM
         run: |
-          docker run --rm -v $PWD:/sbom aquasecurity/trivy:0.51.2 \
+          docker run --rm -v $PWD:/sbom aquasec/trivy:0.51.2 \
             sbom --format cyclonedx --output sbom.json bkimminich/juice-shop:latest
 
       - uses: actions/upload-artifact@v4
