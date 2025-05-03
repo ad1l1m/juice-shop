@@ -59,10 +59,12 @@ jobs:
           cmd_options: "-m 3 -I -j -J zap-report.json"   # ✔ исправлено
           fail_action: true
 
-      - name: SBOM
+      - name: SBOM (CycloneDX for image)
         run: |
-          docker run --rm -v $PWD:/sbom aquasec/trivy:0.51.2 \
-            sbom --format cyclonedx --output sbom.json bkimminich/juice-shop:latest
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $PWD:/out aquasec/trivy:0.51.2 \
+            image --format cyclonedx -o /out/sbom.json bkimminich/juice-shop:latest
 
       - uses: actions/upload-artifact@v4
         with:
