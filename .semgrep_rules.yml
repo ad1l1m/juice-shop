@@ -72,15 +72,19 @@ rules:
 
 # ─── 5. Open /admin без middleware (INFO) ──────────────────
 # ─── 5. Broken‑Access‑Control: открытый /admin без middleware ───
+# ────────────────────────────────────────────────────────────────
+#  ℹ️  Broken Access Control ─ открытый /admin без M/W проверки
+# ────────────────────────────────────────────────────────────────
 - id: bac-open-admin-route
   message: "Открытый admin‑роут без проверок доступа"
   severity: INFO
   languages: [js, ts]
 
-  # одну «позитивную» сигнатуру + один отрицательный фильтр
-  patterns:
-    - pattern: |
-        app.get('/admin', $HANDLER)
-    - pattern-not-inside: |
-        app.get('/admin', verify*, $REST*)
+  # Совпадение: /admin c одним‑единственным handler‑колбеком
+  pattern: |
+    app.get('/admin', $HANDLER)
+
+  # НЕ триггерим, если среди аргументов присутствует verify/authorize M/W
+  pattern-not-inside: |
+    app.get('/admin', verify, ...)
 
