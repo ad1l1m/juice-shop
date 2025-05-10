@@ -73,4 +73,3 @@ jobs:
             trivy-result.json
             zap-report.json
             sbom.json
-
