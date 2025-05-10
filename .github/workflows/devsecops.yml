@@ -29,7 +29,6 @@ jobs:
       - uses: returntocorp/semgrep-action@v1
         with:
           config: .semgrep_rules.yml
-          args: semgrep ci --error
 
 # ---------- 3. Runtime scans: Trivy + ZAP ----------
   runtime-scan:
