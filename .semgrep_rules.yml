@@ -1,20 +1,28 @@
+# .semgrep_rules.yml
 rules:
-  # 1. Cохраняем блокирующий SSRF
-  - id: ssrf-node             # название любое, главное уникальное
-    message: Возможен SSRF (демо‑уязвимость)
-    severity: ERROR
-    languages: [js, ts]
+  # ────────────────────────────────────────────────────────────────
+  #  ❗ Оставляем ТОЛЬКО одну блокирующую проверку (пример – SSRF)
+  # ────────────────────────────────────────────────────────────────
+  - id: ssrf-node
+    # самый простой пример паттерна (покрывает axios/fetch/request.get)
     pattern-either:
       - pattern: |
+          axios("http://$URL")
+      - pattern: |
+          fetch("http://$URL")
+      - pattern: |
           request.get($URL)
-      - pattern: |
-          axios.$FUNC($URL, ...)
-      - pattern: |
-          .get($URL)
-
-  # 2. Всё остальное превращаем в INFO
-  - id: all-other
-    message: Совет: потенциальный риск (не блокирует сборку)
-    severity: INFO
+    message: "Возможен SSRF – пользователь формирует URL запроса"
     languages: [js, ts]
-    pattern: $X
+    severity: ERROR        # ← ломает build, пока не пофиксим
+
+  # ────────────────────────────────────────────────────────────────
+  #  ✅ Все остальные хотим видеть, но НЕ блокировать
+  #     (меняем severity на INFO, WARNING и т.п.)
+  # ────────────────────────────────────────────────────────────────
+  - id: dom-xss-demo
+    pattern: |
+      document.write(...)
+    message: "DOM‑XSS (демонстрационное правило)"
+    languages: [js]
+    severity: INFO         # ← билд НЕ упадёт
