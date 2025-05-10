@@ -49,29 +49,31 @@ rules:
 #       ловим '\0' в пути, который пришёл от юзера
 # ────────────────────────────────────────────────────────────────
   - id: null-byte-path
-    pattern: |
-      fs.$FUNC($PATH, ...)
-    metavariable-pattern:
-      metavariable: $PATH
-      pattern: $REQ.$_
-    pattern-either:
-      - pattern-inside: |
-          if ($PATH.includes("\0")) { ... }    # уже проверяют ↔ игнорируем
-    pattern-not-inside: |
-      if ($PATH.includes("\0")) { ... }
+    patterns:                             # один массив patterns
+      # ① сама операция с fs.*
+      - pattern: |
+          fs.$FUNC($PATH, ...)
+      # ② $PATH пришёл из запроса (req.* / query / params / body)
+      - metavariable-pattern:
+          metavariable: $PATH
+          pattern: $REQ.$_
+      # ③ …и при этом раньше не делали защитную проверку includes('\0')
+      - pattern-not-inside: |
+          if ($PATH.includes("\0")) { ... }
     message: "Null‑byte в пути из пользовательского ввода (обход проверок FS)"
     languages: [js, ts]
     severity: INFO
 
 # ────────────────────────────────────────────────────────────────
-#  ℹ️ 5. Broken Access Control: открытый /admin‑роут без middle‑ware
-#       (нет verify/auth/check/token и есть только один обработчик)
+#  ℹ️ 5. Broken Access Control — открытый /admin без auth‑middleware
 # ────────────────────────────────────────────────────────────────
   - id: bac-open-admin-route
     patterns:
+      # сам уязвимый маршрут
       - pattern: |
           app.get("/admin", $HANDLER)
-      - pattern-not: |
+      # отсутствует промежуточная проверка (‘auth’, ‘verify’, ‘token’, …)
+      - pattern-not-inside: |
           app.get("/admin", $AUTH, $HANDLER)
     message: "Broken Access Control: /admin доступен без проверки авторизации"
     languages: [js, ts]
