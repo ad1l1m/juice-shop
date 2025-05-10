@@ -71,12 +71,16 @@ rules:
             eval($CODE)
 
 # ─── 5. Open /admin без middleware (INFO) ──────────────────
+# ─── 5. Broken‑Access‑Control: открытый /admin без middleware ───
 - id: bac-open-admin-route
   message: "Открытый admin‑роут без проверок доступа"
   severity: INFO
   languages: [js, ts]
-  pattern: |
-    app.get('/admin', $HANDLER)
-  pattern-not-inside: |
-    app.get('/admin', verify* , $REST*)
+
+  # одну «позитивную» сигнатуру + один отрицательный фильтр
+  patterns:
+    - pattern: |
+        app.get('/admin', $HANDLER)
+    - pattern-not-inside: |
+        app.get('/admin', verify*, $REST*)
 
