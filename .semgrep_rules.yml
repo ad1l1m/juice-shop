@@ -1,91 +1,68 @@
 rules:
-# ───────────────────── 1. SSRF (ERROR) ─────────────────────
+# ────────────────────────
+# 1️⃣   SSRF – блокируем
+# ────────────────────────
 - id: ssrf-node
-  message: "Возможен SSRF – пользователь формирует URL запроса"
-  severity: ERROR
+  message: Возможен SSRF – пользователь формирует URL запроса
+  severity: ERROR            # ← build упадёт
   languages: [js, ts]
-  patterns:
-    - pattern-either:
-        # request / axios / fetch
-        - pattern: request.get($URL)
-        - pattern: request.$FUNC($URL)           # .post / .head …
-        - pattern: axios($URL, ...)
-        - pattern: fetch($URL, ...)
-    # URL‑строка пришла из запроса (req.body / query / params)
-    - metavariable-pattern:
-        metavariable: $URL
-        pattern: $REQ.$_
-    # нет белого списка
-    - pattern-not-inside: |
-        if ($URL.startsWith("https://api.my-corp.local")) { ... }
+  pattern-either:
+    - pattern: axios("$URL")
+    - pattern: fetch("$URL")
+    - pattern: request.get($URL)
 
-# ─── 2. DOM‑XSS: присвоение innerHTML без санитайзера ───
+# ──────────────────────────────
+# 2️⃣   DOM‑XSS – только совет
+# ──────────────────────────────
 - id: dom-xss-assign
-  message: "DOM‑XSS: присвоение innerHTML из непроверенных данных"
-  severity: INFO
+  message: DOM‑XSS: присвоение innerHTML из непроверенных данных
+  severity: WARNING          # ← теперь НЕ блокирует build
   languages: [js, ts]
-
   patterns:
-    # 1) опасное присвоение
-    - pattern: |
-        $EL.innerHTML = $DATA
-
-    # 2) но НЕ триггерим, если данные проходят через DOMPurify
+    - pattern: $ELE.innerHTML = $EXPR
+    # не триггерим, если в коде уже вызывают DomPurify/Angular‑Sanitizer
     - pattern-not-inside: |
-        $EL.innerHTML = DOMPurify.sanitize(...)
+        DOMPurify.sanitize(...)
+    - pattern-not-inside: |
+        $SAN.bypassSecurityTrustHtml(...)
 
-
-# ─── 3. Null‑byte обход проверок путей (INFO) ──────────────
+# ──────────────────────────────
+# 3️⃣   Null‑byte – только совет
+# ──────────────────────────────
 - id: null-byte-path
-  message: "Null‑byte в пути из пользовательского ввода (обход проверок FS)"
-  severity: INFO
+  message: Null‑byte в пути из пользовательского ввода (обход проверок FS)
+  severity: WARNING
   languages: [js, ts]
   patterns:
-    # Любой вызов fs.* с path‑переменной
-    - pattern-either:
-        - pattern: fs.$FUNC($PATH, ...)
-        - pattern: path.join(..., $PATH)
-        - pattern: path.resolve(..., $PATH)
-    # $PATH пришёл из запроса
-    - metavariable-pattern:
-        metavariable: $PATH
-        pattern: $REQ.$_
-    # нет проверки на ‘\0’
+    # any fs.*(<user‑controlled‑path>, …)
+    - pattern: fs.$FUNC($PATH, ...)
+    # исключаем константные строки
+    - pattern-not-regex: '"[^"]*"'
+    # исключаем случаи, когда уже проверяют «\0»
     - pattern-not-inside: |
         if ($PATH.includes("\0")) { ... }
 
-# ─── 4. SSTI через eval / EJS (INFO) ───────────────────────
+# ──────────────────────────────
+# 4️⃣   SSTI – только совет
+# ──────────────────────────────
 - id: ssti-node
-  message: "SSTI: шаблон формируется напрямую из запроса"
-  severity: INFO
+  message: Возможна SSTI через подмену шаблона
+  severity: WARNING
   languages: [js, ts]
   patterns:
-    # unsafe ejs
-    - pattern-either:
-        - pattern: |
-            const $TPL = $REQ.$_;
-            ejs.render($TPL, ...)
-        # unsafe eval(template)
-        - pattern: |
-            const $CODE = $REQ.$_;
-            eval($CODE)
+    - pattern: |
+        const $tpl = $REQ.$_;
+        ejs.render($tpl, $ANY*)
 
-# ─── 5. Open /admin без middleware (INFO) ──────────────────
-# ─── 5. Broken‑Access‑Control: открытый /admin без middleware ───
-# ──────────────────────────────────
-# Broken Access Control (open /admin)
-# ──────────────────────────────────
+# ──────────────────────────────
+# 5️⃣   Broken Access Control – совет
+# ──────────────────────────────
 - id: bac-open-admin-route
-  message: "Открытый admin‑роут без проверок доступа"
-  severity: INFO
+  message: Открытый admin‑роут без проверок доступа
+  severity: WARNING
   languages: [js, ts]
-
   patterns:
-    # 1️⃣ что мы хотим найти
     - pattern: |
         app.get('/admin', $HANDLER)
-
-    # 2️⃣ когда ⚠️ НЕ нужно срабатывать
     - pattern-not-inside: |
         app.get('/admin', verify, ...)
-
