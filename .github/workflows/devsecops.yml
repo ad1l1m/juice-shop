@@ -28,7 +28,7 @@ jobs:
       - uses: github/codeql-action/analyze@v3
       - uses: returntocorp/semgrep-action@v1
         with:
-          config: p/owasp-top-ten
+          config: semgrep_rules.yml
 
 # ---------- 3. Runtime scans: Trivy + ZAP ----------
   runtime-scan:

@@ -1,0 +1,20 @@
+rules:
+  # 1. Cохраняем блокирующий SSRF
+  - id: ssrf-node             # название любое, главное уникальное
+    message: Возможен SSRF (демо‑уязвимость)
+    severity: ERROR
+    languages: [js, ts]
+    pattern-either:
+      - pattern: |
+          request.get($URL)
+      - pattern: |
+          axios.$FUNC($URL, ...)
+      - pattern: |
+          .get($URL)
+
+  # 2. Всё остальное превращаем в INFO
+  - id: all-other
+    message: Совет: потенциальный риск (не блокирует сборку)
+    severity: INFO
+    languages: [js, ts]
+    pattern: $X
