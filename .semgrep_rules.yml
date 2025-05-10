@@ -19,21 +19,21 @@ rules:
     - pattern-not-inside: |
         if ($URL.startsWith("https://api.my-corp.local")) { ... }
 
-# ───────────────────── 2. DOM‑XSS (INFO) ───────────────────
+# ─── 2. DOM‑XSS: присвоение innerHTML без санитайзера ───
 - id: dom-xss-assign
   message: "DOM‑XSS: присвоение innerHTML из непроверенных данных"
   severity: INFO
   languages: [js, ts]
+
   patterns:
-    - pattern-either:
-        - pattern: $EL.innerHTML = $PAYLOAD
-        - pattern: $SAN.bypassSecurityTrustHtml($PAYLOAD)
-    - metavariable-pattern:
-        metavariable: $PAYLOAD
-        pattern: $REQ.$_
+    # 1) опасное присвоение
+    - pattern: |
+        $EL.innerHTML = $DATA
+
+    # 2) но НЕ триггерим, если данные проходят через DOMPurify
     - pattern-not-inside: |
-        DOMPurify.sanitize(...)
-        # позволяем Purify или Angular sanitizer без bypass
+        $EL.innerHTML = DOMPurify.sanitize(...)
+
 
 # ─── 3. Null‑byte обход проверок путей (INFO) ──────────────
 - id: null-byte-path
