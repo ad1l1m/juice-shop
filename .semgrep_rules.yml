@@ -16,22 +16,15 @@ rules:
 #       (только если template приходит из req/query/body)
 # ────────────────────────────────────────────────────────────────
   - id: ssti-node
-    pattern-either:
-      # Pug
+    patterns:
       - pattern: |
-          const $tpl = $REQ.$_ ;
-          pug.compile($tpl)($ANY*)
-      # EJS
+          const $TPL = $REQ.$_;
       - pattern: |
-          const $tpl = $REQ.$_ ;
-          ejs.render($tpl,$ANY*)
-      # Handlebars
-      - pattern: |
-          const $tpl = $REQ.$_ ;
-          handlebars.compile($tpl)($ANY*)
-    message: "SSTI: компилируется шаблон, полученный от пользователя"
+          ejs.render($TPL, ...)
+    message: "SSTI: шаблон для EJS формируется напрямую из запроса"
     languages: [js, ts]
     severity: INFO
+
 
 # ────────────────────────────────────────────────────────────────
 #  ℹ️ 3. DOM‑XSS (обновили — ловим прямую вставку во «взрывоопасные» API)
