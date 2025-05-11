@@ -1,65 +1,90 @@
-# .semgrep_rules.yml  (UTF‑8 без BOM, отступы двумя пробелами)
 rules:
-  # 1. SSRF  (blocking)
-  - id: ssrf-node
-    message: "Возможен SSRF – пользователь формирует URL запроса"
-    languages: [js, ts]
-    severity: ERROR
-    pattern-either:
-      - pattern: request.get($URL)
-      - pattern: request.$FUNC($URL)
-      - pattern: axios($URL, ...)
-      - pattern: fetch($URL, ...)
-    metavariable-pattern:
-      metavariable: $URL
-      pattern: $REQ.$_
-    pattern-not-inside: |
-      if ($URL.startsWith("https://api.my-corp.local")) { ... }
+# ───────────────────── 1. SSRF (ERROR) ─────────────────────
+- id: ssrf-node
+  message: "Возможен SSRF – пользователь формирует URL запроса"
+  severity: ERROR
+  languages: [js, ts]
+  patterns:
+    - pattern-either:
+        # request / axios / fetch
+        - pattern: request.get($URL)
+        - pattern: request.$FUNC($URL)           # .post / .head …
+        - pattern: axios($URL, ...)
+        - pattern: fetch($URL, ...)
+    # URL‑строка пришла из запроса (req.body / query / params)
+    - metavariable-pattern:
+        metavariable: $URL
+        pattern: $REQ.$_
+    # нет белого списка
+    - pattern-not-inside: |
+        if ($URL.startsWith("https://api.my-corp.local")) { ... }
 
-  # 2. DOM‑XSS  (informational)
-  - id: dom-xss-assign
-    message: "DOM‑XSS: присвоение innerHTML из непроверенных данных"
-    languages: [js, ts]
-    severity: INFO
-    pattern: |
-      $EL.innerHTML = $DATA
-    pattern-not-inside: |
-      $EL.innerHTML = DOMPurify.sanitize(...)
+# ─── 2. DOM‑XSS: присвоение innerHTML без санитайзера ───
+- id: dom-xss-assign
+  message: "DOM‑XSS: присвоение innerHTML из непроверенных данных"
+  severity: INFO
+  languages: [js, ts]
 
-  # 3. Null‑byte path  (informational)
-  - id: null-byte-path
-    message: "Null‑byte в пути из пользовательского ввода"
-    languages: [js, ts]
-    severity: INFO
-    pattern-either:
-      - pattern: fs.$FUNC($PATH, ...)
-      - pattern: path.join(..., $PATH)
-      - pattern: path.resolve(..., $PATH)
-    metavariable-pattern:
-      metavariable: $PATH
-      pattern: $REQ.$_
-    pattern-not-inside: |
-      if ($PATH.includes("\0")) { ... }
+  patterns:
+    # 1) опасное присвоение
+    - pattern: |
+        $EL.innerHTML = $DATA
 
-  # 4. SSTI
-  - id: ssti-node
-    message: "SSTI: шаблон формируется напрямую из запроса"
-    languages: [js, ts]
-    severity: INFO
-    pattern-either:
-      - pattern: |
-          const $TPL = $REQ.$_;
-          ejs.render($TPL, ...)
-      - pattern: |
-          const $CODE = $REQ.$_;
-          eval($CODE)
+    # 2) но НЕ триггерим, если данные проходят через DOMPurify
+    - pattern-not-inside: |
+        $EL.innerHTML = DOMPurify.sanitize(...)
 
-  # 5. Открытый /admin
-  - id: bac-open-admin-route
-    message: "Открытый admin‑роут без проверок доступа"
-    languages: [js, ts]
-    severity: INFO
-    pattern: |
-      app.get('/admin', $HANDLER)
-    pattern-not-inside: |
-      app.get('/admin', verify, ...)
+
+# ─── 3. Null‑byte обход проверок путей (INFO) ──────────────
+- id: null-byte-path
+  message: "Null‑byte в пути из пользовательского ввода (обход проверок FS)"
+  severity: INFO
+  languages: [js, ts]
+  patterns:
+    # Любой вызов fs.* с path‑переменной
+    - pattern-either:
+        - pattern: fs.$FUNC($PATH, ...)
+        - pattern: path.join(..., $PATH)
+        - pattern: path.resolve(..., $PATH)
+    # $PATH пришёл из запроса
+    - metavariable-pattern:
+        metavariable: $PATH
+        pattern: $REQ.$_
+    # нет проверки на ‘\0’
+    - pattern-not-inside: |
+        if ($PATH.includes("\0")) { ... }
+
+# ─── 4. SSTI через eval / EJS (INFO) ───────────────────────
+- id: ssti-node
+  message: "SSTI: шаблон формируется напрямую из запроса"
+  severity: INFO
+  languages: [js, ts]
+  patterns:
+    # unsafe ejs
+    - pattern-either:
+        - pattern: |
+            const $TPL = $REQ.$_;
+            ejs.render($TPL, ...)
+        # unsafe eval(template)
+        - pattern: |
+            const $CODE = $REQ.$_;
+            eval($CODE)
+
+# ─── 5. Open /admin без middleware (INFO) ──────────────────
+# ─── 5. Broken‑Access‑Control: открытый /admin без middleware ───
+# ──────────────────────────────────
+# Broken Access Control (open /admin)
+# ──────────────────────────────────
+- id: bac-open-admin-route
+  message: "Открытый admin‑роут без проверок доступа"
+  severity: INFO
+  languages: [js, ts]
+
+  patterns:
+    # 1️⃣ что мы хотим найти
+    - pattern: |
+        app.get('/admin', $HANDLER)
+
+    # 2️⃣ когда ⚠️ НЕ нужно срабатывать
+    - pattern-not-inside: |
+        app.get('/admin', verify, ...)
