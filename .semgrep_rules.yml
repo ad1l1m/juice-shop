@@ -1,59 +1,65 @@
-# .semgrep_rules.yml
-# ───────────────────── 1. SSRF ─────────────────────
-- id: ssrf-node
-  message: "Возможен SSRF – пользователь формирует URL запроса"   # ← добавили
-  languages: [js, ts]
-  severity: ERROR
-  pattern-either:
-    - pattern: request.get($URL)
-    - pattern: request.$FUNC($URL)
-    - pattern: axios($URL, ...)
-    - pattern: fetch($URL, ...)
+# .semgrep_rules.yml  (UTF‑8 без BOM, отступы двумя пробелами)
+rules:
+  # 1. SSRF  (blocking)
+  - id: ssrf-node
+    message: "Возможен SSRF – пользователь формирует URL запроса"
+    languages: [js, ts]
+    severity: ERROR
+    pattern-either:
+      - pattern: request.get($URL)
+      - pattern: request.$FUNC($URL)
+      - pattern: axios($URL, ...)
+      - pattern: fetch($URL, ...)
+    metavariable-pattern:
+      metavariable: $URL
+      pattern: $REQ.$_
+    pattern-not-inside: |
+      if ($URL.startsWith("https://api.my-corp.local")) { ... }
 
-# ─── 2. DOM‑XSS: присвоение innerHTML без санитайзера ───
-- id: dom-xss-assign
-  message: "DOM‑XSS: присвоение innerHTML из непроверенных данных"
-  languages: [js, ts]
-  severity: INFO
-  pattern: |
-    $EL.innerHTML = $DATA
-  pattern-not-inside: |
-    $EL.innerHTML = DOMPurify.sanitize(...)
+  # 2. DOM‑XSS  (informational)
+  - id: dom-xss-assign
+    message: "DOM‑XSS: присвоение innerHTML из непроверенных данных"
+    languages: [js, ts]
+    severity: INFO
+    pattern: |
+      $EL.innerHTML = $DATA
+    pattern-not-inside: |
+      $EL.innerHTML = DOMPurify.sanitize(...)
 
-# ─── 3. Null‑byte path обход ───
-- id: null-byte-path
-  message: "Null‑byte в пути из пользовательского ввода (обход проверок FS)"
-  languages: [js, ts]
-  severity: INFO
-  pattern-either:
-    - pattern: fs.$FUNC($PATH, ...)
-    - pattern: path.join(..., $PATH)
-    - pattern: path.resolve(..., $PATH)
-  metavariable-pattern:
-    metavariable: $PATH
-    pattern: $REQ.$_
-  pattern-not-inside: |
-    if ($PATH.includes("\0")) { ... }
+  # 3. Null‑byte path  (informational)
+  - id: null-byte-path
+    message: "Null‑byte в пути из пользовательского ввода"
+    languages: [js, ts]
+    severity: INFO
+    pattern-either:
+      - pattern: fs.$FUNC($PATH, ...)
+      - pattern: path.join(..., $PATH)
+      - pattern: path.resolve(..., $PATH)
+    metavariable-pattern:
+      metavariable: $PATH
+      pattern: $REQ.$_
+    pattern-not-inside: |
+      if ($PATH.includes("\0")) { ... }
 
-# ─── 4. SSTI через eval / ejs.render ───
-- id: ssti-node
-  message: "SSTI: шаблон формируется напрямую из запроса"
-  languages: [js, ts]
-  severity: INFO
-  pattern-either:
-    - pattern: |
-        const $TPL = $REQ.$_;
-        ejs.render($TPL, ...)
-    - pattern: |
-        const $CODE = $REQ.$_;
-        eval($CODE)
+  # 4. SSTI
+  - id: ssti-node
+    message: "SSTI: шаблон формируется напрямую из запроса"
+    languages: [js, ts]
+    severity: INFO
+    pattern-either:
+      - pattern: |
+          const $TPL = $REQ.$_;
+          ejs.render($TPL, ...)
+      - pattern: |
+          const $CODE = $REQ.$_;
+          eval($CODE)
 
-# ─── 5. Открытый /admin без middleware ───
-- id: bac-open-admin-route
-  message: "Открытый admin‑роут без проверок доступа"
-  languages: [js, ts]
-  severity: INFO
-  pattern: |
-    app.get('/admin', $HANDLER)
-  pattern-not-inside: |
-    app.get('/admin', verify, ...)
+  # 5. Открытый /admin
+  - id: bac-open-admin-route
+    message: "Открытый admin‑роут без проверок доступа"
+    languages: [js, ts]
+    severity: INFO
+    pattern: |
+      app.get('/admin', $HANDLER)
+    pattern-not-inside: |
+      app.get('/admin', verify, ...)
