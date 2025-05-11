@@ -1,23 +1,13 @@
 rules:
 # ───────────────────── 1. SSRF (ERROR) ─────────────────────
 - id: ssrf-node
-  message: "Возможен SSRF – пользователь формирует URL запроса"
-  severity: ERROR
   languages: [js, ts]
-  patterns:
-    - pattern-either:
-        # request / axios / fetch
-        - pattern: request.get($URL)
-        - pattern: request.$FUNC($URL)           # .post / .head …
-        - pattern: axios($URL, ...)
-        - pattern: fetch($URL, ...)
-    # URL‑строка пришла из запроса (req.body / query / params)
-    - metavariable-pattern:
-        metavariable: $URL
-        pattern: $REQ.$_
-    # нет белого списка
-    - pattern-not-inside: |
-        if ($URL.startsWith("https://api.my-corp.local")) { ... }
+  severity: ERROR
+  pattern-either:
+    - pattern: request.get($URL)
+    - pattern: request.$FUNC($URL)
+    - pattern: axios($URL, ...)
+    - pattern: fetch($URL, ...)
 
 # ─── 2. DOM‑XSS: присвоение innerHTML без санитайзера ───
 - id: dom-xss-assign
@@ -56,19 +46,12 @@ rules:
 
 # ─── 4. SSTI через eval / EJS (INFO) ───────────────────────
 - id: ssti-node
-  message: "SSTI: шаблон формируется напрямую из запроса"
-  severity: INFO
   languages: [js, ts]
-  patterns:
-    # unsafe ejs
-    - pattern-either:
-        - pattern: |
-            const $TPL = $REQ.$_;
-            ejs.render($TPL, ...)
-        # unsafe eval(template)
-        - pattern: |
-            const $CODE = $REQ.$_;
-            eval($CODE)
+  severity: INFO
+  pattern-either:
+    - pattern: eval($ANY)
+    - pattern: pug.compile($ANY)
+    - pattern: ejs.render($ANY, ...)
 
 # ─── 5. Open /admin без middleware (INFO) ──────────────────
 # ─── 5. Broken‑Access‑Control: открытый /admin без middleware ───
@@ -76,15 +59,8 @@ rules:
 # Broken Access Control (open /admin)
 # ──────────────────────────────────
 - id: bac-open-admin-route
-  message: "Открытый admin‑роут без проверок доступа"
-  severity: INFO
   languages: [js, ts]
+  severity: INFO
+  pattern: app.get('/admin', $HANDLER)
+  pattern-not: app.get('/admin', verify, ...)
 
-  patterns:
-    # 1️⃣ что мы хотим найти
-    - pattern: |
-        app.get('/admin', $HANDLER)
-
-    # 2️⃣ когда ⚠️ НЕ нужно срабатывать
-    - pattern-not-inside: |
-        app.get('/admin', verify, ...)
