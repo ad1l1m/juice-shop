@@ -1,0 +1,13 @@
+data/static/codefixes/dbSchemaChallenge_1.ts
+data/static/codefixes/dbSchemaChallenge_3.ts
+data/static/codefixes/unionSqlInjectionChallenge_1.ts	
+data/static/codefixes/unionSqlInjectionChallenge_3.ts	
+lib/insecurity.ts
+routes/chatbot.ts
+routes/dataErasure.ts
+routes/keyServer.ts
+routes/logfileServer.ts
+routes/login.ts
+routes/quarantineServer.ts
+routes/redirect.ts
+server.ts
