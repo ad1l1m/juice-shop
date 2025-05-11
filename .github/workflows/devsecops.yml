@@ -30,13 +30,12 @@ jobs:
       #     config: p/owasp-top-ten
       #     generateSarif: true
       #     output: semgrep.sarif
-      - name: Run Semgrep
-        id: semgrep
+      - name: Semgrep (локальные правила)
         uses: returntocorp/semgrep-action@v1
         with:
-          config: p/owasp-top-ten             # или .semgrep_rules.yml
-          generateSarifReport: true                 # ← включаем SARIF
-          output: semgrep.sarif               # имя файла на диске
+          config: .semgrep_rules.yml
+          # Semgrep запустится как  semgrep ci --sarif --output semgrep.sarif
+          args: --sarif --output semgrep.sarif             
 
       # ---------- загружаем SARIF как Code‑Scanning ----------
       - name: Upload SARIF to GitHub Code Scanning
