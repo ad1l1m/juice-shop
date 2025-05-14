@@ -16,6 +16,8 @@ const security = require('../lib/insecurity')
 const pug = require('pug')
 const themes = require('../views/themes/themes').themes
 const entities = new Entities()
+const vm = require('vm')
+const Handlebars = require('handlebars')
 
 module.exports = function getUserProfile () {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -26,20 +28,21 @@ module.exports = function getUserProfile () {
         UserModel.findByPk(loggedInUser.data.id).then((user: UserModel | null) => {
           let template = buf.toString()
           let username = user?.username
-          if (username?.match(/#{(.*)}/) !== null && utils.isChallengeEnabled(challenges.usernameXssChallenge)) {
-            req.app.locals.abused_ssti_bug = true
-            const code = username?.substring(2, username.length - 1)
-            try {
-              if (!code) {
-                throw new Error('Username is null')
-              }
-              username = eval(code) // eslint-disable-line no-eval
-            } catch (err) {
+          // console.log(template)
+          try {
+            if (typeof username === 'string' && username.match(/^#{.*}$/) && utils.isChallengeEnabled(challenges.usernameXssChallenge)) {
+              req.app.locals.abused_ssti_bug = true
+              const templateText = username.slice(2, -1)
+              const template = Handlebars.compile(`{{${templateText}}}`)
+              
+              username = template({}) // можно передать сюда переменные для шаблона
+            } else {
               username = '\\' + username
             }
-          } else {
+          } catch (err) {
             username = '\\' + username
           }
+          
           const theme = themes[config.get<string>('application.theme')]
           if (username) {
             template = template.replace(/_username_/g, username)
