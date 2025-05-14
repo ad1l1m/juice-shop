@@ -55,12 +55,6 @@ module.exports = function servePublicFiles () {
       return res.status(403).send('Invalid file name')
     }
 
-
-    const requested = path.join(baseDir, safeName)
-    if (path.relative(baseDir, requested).startsWith('..')) {
-      return res.status(403).send('Access denied')
-    }
-
     /* 4. отдаём файл */
     return res.sendFile(safeName, { root: baseDir, dotfiles: 'deny' })
   }
