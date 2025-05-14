@@ -30,12 +30,12 @@ module.exports = function servePublicFiles () {
       const baseDir = path.resolve('ftp/')
       const requestedPath = path.resolve(baseDir, file)
 
-      // 🔐 Это важно для Semgrep — явно и здесь
-      if (!requestedPath.startsWith(baseDir)) {
+      if (!requestedPath.startsWith(baseDir + path.sep)) {
         return res.status(403).send('Access denied')
       }
 
-      return res.sendFile(requestedPath) // ✅ Semgrep теперь замолчит
+      return res.sendFile(requestedPath)
+
     }
 
     res.status(403)
