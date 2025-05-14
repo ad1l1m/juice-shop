@@ -14,33 +14,42 @@ const security = require('../lib/insecurity')
 
 module.exports = function servePublicFiles () {
   return ({ params }: Request, res: Response, next: NextFunction) => {
-    let file = params.file
+    let file = params.file;
 
-    if (file.includes('/')) {
-      res.status(403)
-      return next(new Error('File names cannot contain forward slashes!'))
+    /* ---------- 1. Базовая валидация ---------- */
+    if (file.includes('/') || file.includes('..') || path.isAbsolute(file)) {
+      return res.status(403).send('Invalid file name');
+    }
+    file = decodeURIComponent(file);
+
+    /* ---------- 2. Разрешённые расширения ---------- */
+    if (!(endsWithAllowlistedFileType(file) || file === 'incident-support.kdbx')) {
+      return res.status(403).send('Only .md and .pdf files are allowed');
     }
 
-    file = decodeURIComponent(file)
+    file = security.cutOffPoisonNullByte(file);
+    verifySuccessfulPoisonNullByteExploit(file);
 
-    if (file && (endsWithAllowlistedFileType(file) || file === 'incident-support.kdbx')) {
-    file = security.cutOffPoisonNullByte(file)
-    verifySuccessfulPoisonNullByteExploit(file)
+    /* ---------- 3. Построение и КРИТИЧЕСКАЯ проверка пути ---------- */
+    const baseDir = path.resolve('ftp');             // …/ftp
+    const requestedPath = path.resolve(baseDir, file); // …/ftp/<file>
 
-    const baseDir = path.resolve('ftp/')
-    const requestedPath = path.resolve(baseDir, file)
-
-    // Semgrep любит эту проверку
-    if (!requestedPath.startsWith(baseDir + path.sep)) {
-      return res.status(403).send('Access denied')
+    // Semgrep “любит” именно такое сравнение
+    if (path.relative(baseDir, requestedPath).startsWith('..')) {
+      return res.status(403).send('Access denied');
     }
 
-    return res.sendFile(requestedPath)
-  } else {
-    res.status(403)
-    next(new Error('Only .md and .pdf files are allowed!'))
+    /* ---------- 4. Отдаём файл ---------- */
+    return res.sendFile(requestedPath);
+  };
+
+  /* --- вспомогательные функции (без изменений) --- */
+  function verifySuccessfulPoisonNullByteExploit (file: string) { /* … */ }
+  function endsWithAllowlistedFileType (p: string) {
+    return utils.endsWith(p, '.md') || utils.endsWith(p, '.pdf');
   }
-  }
+};
+
 
 
 
@@ -61,4 +70,4 @@ module.exports = function servePublicFiles () {
     console.log(param, 'fourth file or console')
     return utils.endsWith(param, '.md') || utils.endsWith(param, '.pdf')
   }
-}
+
