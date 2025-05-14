@@ -51,9 +51,10 @@ module.exports = function servePublicFiles () {
     const baseDir  = path.resolve('ftp')     // …/ftp
     const safeName = path.basename(file)     // <file>
 
-    if (!/^[\w.\-]+$/.test(safeName)) {
+    if (safeName !== file) {           // теоретически вдруг что‑то изменилось
       return res.status(403).send('Invalid file name')
     }
+
 
     const requested = path.join(baseDir, safeName)
     if (path.relative(baseDir, requested).startsWith('..')) {
