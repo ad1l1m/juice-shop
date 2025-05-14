@@ -9,24 +9,28 @@ import { challenges } from '../data/datacache'
 import challengeUtils = require('../lib/challengeUtils')
 
 import * as utils from '../lib/utils'
+import { partial_ratio } from 'fuzzball'
 const security = require('../lib/insecurity')
 
 module.exports = function servePublicFiles () {
   return ({ params, query }: Request, res: Response, next: NextFunction) => {
-    const file = params.file
+    let file = params.file
 
     if (!file.includes('/')) {
+      file = decodeURIComponent(file)
       verify(file, res, next)
+      
     } else {
       res.status(403)
       next(new Error('File names cannot contain forward slashes!'))
     }
+    console.log(file, 'first file')
   }
 
   function verify (file: string, res: Response, next: NextFunction) {
     if (file && (endsWithAllowlistedFileType(file) || (file === 'incident-support.kdbx'))) {
       file = security.cutOffPoisonNullByte(file)
-
+      console.log(file, 'second file')
       challengeUtils.solveIf(challenges.directoryListingChallenge, () => { return file.toLowerCase() === 'acquisitions.md' })
       verifySuccessfulPoisonNullByteExploit(file)
 
@@ -38,6 +42,7 @@ module.exports = function servePublicFiles () {
   }
 
   function verifySuccessfulPoisonNullByteExploit (file: string) {
+    console.log(file, 'third file')
     challengeUtils.solveIf(challenges.easterEggLevelOneChallenge, () => { return file.toLowerCase() === 'eastere.gg' })
     challengeUtils.solveIf(challenges.forgottenDevBackupChallenge, () => { return file.toLowerCase() === 'package.json.bak' })
     challengeUtils.solveIf(challenges.forgottenBackupChallenge, () => { return file.toLowerCase() === 'coupons_2013.md.bak' })
@@ -50,6 +55,7 @@ module.exports = function servePublicFiles () {
   }
 
   function endsWithAllowlistedFileType (param: string) {
+    console.log(param, 'fourth file or console')
     return utils.endsWith(param, '.md') || utils.endsWith(param, '.pdf')
   }
 }
