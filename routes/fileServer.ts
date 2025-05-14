@@ -27,28 +27,25 @@ module.exports = function servePublicFiles () {
     console.log(file, 'first file')
   }
 
-  function verify (file: string, res: Response, next: NextFunction) {
-    if (file && (endsWithAllowlistedFileType(file) || (file === 'incident-support.kdbx'))) {
+  function verify(file: string, res: Response, next: NextFunction) {
+    if (file && (endsWithAllowlistedFileType(file) || file === 'incident-support.kdbx')) {
       file = security.cutOffPoisonNullByte(file)
-      challengeUtils.solveIf(challenges.directoryListingChallenge, () => { return file.toLowerCase() === 'acquisitions.md' })
-      verifySuccessfulPoisonNullByteExploit(file)
 
       const baseDir = path.resolve('ftp/')
       const requestedPath = path.resolve(baseDir, file)
 
-      // ⛔ Обязательно: на этом уровне (не вложено!)
+      // 🔐 Явная проверка пути
       if (!requestedPath.startsWith(baseDir)) {
-        res.status(403).send('Access denied')
-        return
+        return res.status(403).send('Access denied')
       }
 
-      // ✅ После полной проверки
-      res.sendFile(requestedPath)
+      res.sendFile(requestedPath) // 🟢 теперь безопасно
     } else {
       res.status(403)
       next(new Error('Only .md and .pdf files are allowed!'))
     }
-}
+  }
+
 
 
   function verifySuccessfulPoisonNullByteExploit (file: string) {
