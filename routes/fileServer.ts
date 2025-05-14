@@ -4,7 +4,7 @@
  */
 
 import path = require('path')
-import { Request, Response, NextFunction } from 'express'
+import { type Request, type Response, type NextFunction } from 'express'
 import { challenges } from '../data/datacache'
 import challengeUtils = require('../lib/challengeUtils')
 import * as utils from '../lib/utils'
@@ -17,14 +17,14 @@ module.exports = function servePublicFiles () {
   }
 
   function verifySuccessfulPoisonNullByteExploit (file: string) {
-    challengeUtils.solveIf(challenges.easterEggLevelOneChallenge,      () => file.toLowerCase() === 'eastere.gg')
-    challengeUtils.solveIf(challenges.forgottenDevBackupChallenge,     () => file.toLowerCase() === 'package.json.bak')
-    challengeUtils.solveIf(challenges.forgottenBackupChallenge,        () => file.toLowerCase() === 'coupons_2013.md.bak')
+    challengeUtils.solveIf(challenges.easterEggLevelOneChallenge, () => file.toLowerCase() === 'eastere.gg')
+    challengeUtils.solveIf(challenges.forgottenDevBackupChallenge, () => file.toLowerCase() === 'package.json.bak')
+    challengeUtils.solveIf(challenges.forgottenBackupChallenge, () => file.toLowerCase() === 'coupons_2013.md.bak')
     challengeUtils.solveIf(challenges.misplacedSignatureFileChallenge, () => file.toLowerCase() === 'suspicious_errors.yml')
     challengeUtils.solveIf(challenges.nullByteChallenge, () =>
-      challenges.easterEggLevelOneChallenge.solved      ||
-      challenges.forgottenDevBackupChallenge.solved     ||
-      challenges.forgottenBackupChallenge.solved        ||
+      challenges.easterEggLevelOneChallenge.solved ||
+      challenges.forgottenDevBackupChallenge.solved ||
+      challenges.forgottenBackupChallenge.solved ||
       challenges.misplacedSignatureFileChallenge.solved ||
       file.toLowerCase() === 'encrypt.pyc')
   }
@@ -48,13 +48,12 @@ module.exports = function servePublicFiles () {
     verifySuccessfulPoisonNullByteExploit(file)
 
     /* 3. безопасное формирование пути */
-    const baseDir  = path.resolve('ftp')     // …/ftp
-    const safeName = path.basename(file)     // <file>
+    const baseDir = path.resolve('ftp') // …/ftp
+    const safeName = path.basename(file) // <file>
 
-    if (safeName !== file) {           // теоретически вдруг что‑то изменилось
+    if (safeName !== file) { // теоретически вдруг что‑то изменилось
       return res.status(403).send('Invalid file name')
     }
-
 
     const requested = path.join(baseDir, safeName)
     if (path.relative(baseDir, requested).startsWith('..')) {
@@ -62,6 +61,6 @@ module.exports = function servePublicFiles () {
     }
 
     /* 4. отдаём файл */
-    return res.sendFile(safeName, { root: baseDir, dotfiles: 'deny' })
+    res.sendFile(safeName, { root: baseDir, dotfiles: 'deny' })
   }
 }
