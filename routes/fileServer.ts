@@ -36,16 +36,20 @@ module.exports = function servePublicFiles () {
       const baseDir = path.resolve('ftp/')
       const requestedPath = path.resolve(baseDir, file)
 
+      // ⛔ Обязательно: на этом уровне (не вложено!)
       if (!requestedPath.startsWith(baseDir)) {
-        return res.status(403).send('Access denied')
+        res.status(403).send('Access denied')
+        return
       }
 
+      // ✅ После полной проверки
       res.sendFile(requestedPath)
     } else {
       res.status(403)
       next(new Error('Only .md and .pdf files are allowed!'))
     }
-  }
+}
+
 
   function verifySuccessfulPoisonNullByteExploit (file: string) {
     console.log(file, 'third file')
