@@ -19,63 +19,52 @@ const entities = new Entities()
 const vm = require('vm')
 const Handlebars = require('handlebars')
 
+import escapeHtml from 'escape-html'
+import path from 'path'
+
 module.exports = function getUserProfile () {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fs.readFile('views/userProfile.pug', function (err, buf) {
-      if (err != null) throw err
-      const loggedInUser = security.authenticatedUsers.get(req.cookies.token)
-      if (loggedInUser) {
-        UserModel.findByPk(loggedInUser.data.id).then((user: UserModel | null) => {
-          let template = buf.toString()
-          let username = user?.username
-          // console.log(template)
-          try {
-            if (typeof username === 'string' && username.match(/^#{.*}$/) && utils.isChallengeEnabled(challenges.usernameXssChallenge)) {
-              req.app.locals.abused_ssti_bug = true
-              const templateText = username.slice(2, -1)
-              const template = Handlebars.compile(`{{${templateText}}}`)
-              
-              username = template({}) // можно передать сюда переменные для шаблона
-            } else {
-              username = '\\' + username
-            }
-          } catch (err) {
-            username = '\\' + username
-          }
-          
-          const theme = themes[config.get<string>('application.theme')]
-          if (username) {
-            template = template.replace(/_username_/g, username)
-          }
-          template = template.replace(/_emailHash_/g, security.hash(user?.email))
-          template = template.replace(/_title_/g, entities.encode(config.get<string>('application.name')))
-          template = template.replace(/_favicon_/g, favicon())
-          template = template.replace(/_bgColor_/g, theme.bgColor)
-          template = template.replace(/_textColor_/g, theme.textColor)
-          template = template.replace(/_navColor_/g, theme.navColor)
-          template = template.replace(/_primLight_/g, theme.primLight)
-          template = template.replace(/_primDark_/g, theme.primDark)
-          template = template.replace(/_logo_/g, utils.extractFilename(config.get('application.logo')))
-          const fn = pug.compile(template)
-          const CSP = `img-src 'self' ${user?.profileImage}; script-src 'self' 'unsafe-eval' https://code.getmdl.io http://ajax.googleapis.com`
-          // @ts-expect-error FIXME type issue with string vs. undefined for username
-          challengeUtils.solveIf(challenges.usernameXssChallenge, () => { return user?.profileImage.match(/;[ ]*script-src(.)*'unsafe-inline'/g) !== null && utils.contains(username, '<script>alert(`xss`)</script>') })
-
-          res.set({
-            'Content-Security-Policy': CSP
-          })
-
-          res.send(fn(user))
-        }).catch((error: Error) => {
-          next(error)
-        })
-      } else {
-        next(new Error('Blocked illegal activity by ' + req.socket.remoteAddress))
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const session = security.authenticatedUsers.get(req.cookies.token)
+      if (!session) {
+        return next(new Error('Blocked illegal activity by ' + req.socket.remoteAddress))
       }
-    })
-  }
 
-  function favicon () {
-    return utils.extractFilename(config.get('application.favicon'))
+      const user = await UserModel.findByPk(session.data.id)
+      if (!user) { return next(new Error('User not found')) }
+
+      /* 1. Безопасное имя пользователя */
+      let username = escapeHtml(user.username ?? '')
+      if (
+        typeof user.username === 'string' &&
+        user.username.match(/^#{.*}$/) &&
+        utils.isChallengeEnabled(challenges.usernameXssChallenge)
+      ) {
+        /* Челлендж-флаг, но в шаблон идёт ЭКРАНИРОВАННАЯ строка */
+        req.app.locals.abused_ssti_bug = true
+        challengeUtils.solve(challenges.usernameXssChallenge)
+      }
+
+      /* 2. Готовим данные для фиксированного шаблона */
+      const theme = themes[config.get<string>('application.theme')]
+      const html  = pug.renderFile(
+        path.join(__dirname, 'views/userProfile.pug'),
+        {
+          username,
+          emailHash: security.hash(user.email),
+          title:     config.get<string>('application.name'),
+          favicon:   utils.extractFilename(config.get('application.favicon')),
+          theme,
+          profileImage: user.profileImage
+        }
+      )
+
+      res.set('Content-Security-Policy',
+              `img-src 'self' ${user.profileImage}; script-src 'self'`)
+      res.send(html)
+
+    } catch (err) {
+      next(err)
+    }
   }
 }
