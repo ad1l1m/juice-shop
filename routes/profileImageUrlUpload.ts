@@ -6,13 +6,16 @@
 import fs = require('fs')
 import { type Request, type Response, type NextFunction } from 'express'
 import logger from '../lib/logger'
+import stream from 'stream'
 
 import { UserModel } from '../models/user'
 import * as utils from '../lib/utils'
+import { promisify } from 'util'
 const security = require('../lib/insecurity')
 const request = require('request')
 const ssrfFilter = require('ssrf-req-filter');
-
+const axios = require('axios').default;
+const pipeline = promisify(stream.pipeline)
 async function isSafeUrl(inputUrl: string): Promise<boolean> {
   const dns = require('dns').promises
   const net = require('net')
@@ -51,20 +54,48 @@ module.exports = function profileImageUrlUpload () {
       }
 
       if (loggedInUser) {
-        const imageRequest = request
-          .get(url)
-          .on('error', function (err: unknown) {
-            UserModel.findByPk(loggedInUser.data.id).then(async (user: UserModel | null) => { return await user?.update({ profileImage: url }) }).catch((error: Error) => { next(error) })
-            logger.warn(`Error retrieving user profile image: ${utils.getErrorMessage(err)}; using image link directly`)
+        try {
+          /* ─── 1. HTTP-запрос ─── */
+          const response = await axios.get(url, {
+            responseType: 'stream',      // отдаём поток
+            timeout: 3000,               // 3 с
+            maxRedirects: 3              // как у старого request
           })
-          .on('response', function (res: Response) {
-            if (res.statusCode === 200) {
-              const ext = ['jpg', 'jpeg', 'png', 'svg', 'gif'].includes(url.split('.').slice(-1)[0].toLowerCase()) ? url.split('.').slice(-1)[0].toLowerCase() : 'jpg'
-              console.log(loggedInUser)
-              imageRequest.pipe(fs.createWriteStream(`frontend/dist/frontend/assets/public/images/uploads/${loggedInUser.data.id}.${ext}`))
-              UserModel.findByPk(loggedInUser.data.id).then(async (user: UserModel | null) => { return await user?.update({ profileImage: `/assets/public/images/uploads/${loggedInUser.data.id}.${ext}` }) }).catch((error: Error) => { next(error) })
-            } else UserModel.findByPk(loggedInUser.data.id).then(async (user: UserModel | null) => { return await user?.update({ profileImage: url }) }).catch((error: Error) => { next(error) })
-          })
+
+          /* ─── 2. Проверяем код ответа ─── */
+          if (response.status !== 200) {
+            await UserModel.update(
+              { profileImage: url },
+              { where: { id: loggedInUser.data.id } }
+            )
+            return
+          }
+
+          /* ─── 3. Определяем расширение ─── */
+          const ext = ['jpg', 'jpeg', 'png', 'svg', 'gif']
+                      .find(e => url.toLowerCase().endsWith('.' + e)) ?? 'jpg'
+
+          const destPath = `frontend/dist/frontend/assets/public/images/uploads/${loggedInUser.data.id}.${ext}`
+
+          /* ─── 4. Сохраняем на диск ─── */
+          await pipeline(response.data, fs.createWriteStream(destPath))
+
+          /* ─── 5. Обновляем запись пользователя ─── */
+          await UserModel.update(
+            { profileImage: `/assets/public/images/uploads/${loggedInUser.data.id}.${ext}` },
+            { where: { id: loggedInUser.data.id } }
+          )
+
+        } catch (err) {
+          /* ─── 6. Обработка ошибок ─── */
+          logger.warn(
+            `Error retrieving user profile image: ${utils.getErrorMessage(err)}; storing link only`
+          )
+          await UserModel.update(
+            { profileImage: url },
+            { where: { id: loggedInUser.data.id } }
+          )
+        }
       } else {
         next(new Error('Blocked illegal activity by ' + req.socket.remoteAddress))
       }
